@@ -1,5 +1,9 @@
 [package]
 name = "sitdown"
+description = "Static site generator"
+license = "MIT"
+repository = "https://github.com/BenPski/sitdown"
+authors = ["Ben Pawlowski ben@pepski.com"]
 version = "0.1.0"
 edition = "2021"
 
@@ -7,7 +11,7 @@ edition = "2021"
 axum = "0.7.5"
 clap = { version = "4.5.10", features = ["derive"] }
 markdown = "1.0.0-alpha.18"
-minijinja = "2.1.0"
+minijinja = { version = "2.1.0", features = ["loader"] }
 serde = { version = "1.0.204", features = ["derive"] }
 tokio = { version = "1.38.1", features = ["full"] }
 tower = { version = "0.4.13", features = ["util"] }
