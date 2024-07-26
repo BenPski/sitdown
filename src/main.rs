@@ -1,7 +1,10 @@
 use axum::Router;
 use clap::{Parser, Subcommand};
-use sitdown::site::Site;
-use std::net::SocketAddr;
+use notify::{RecursiveMode, Watcher};
+use notify_debouncer_full::new_debouncer;
+use sitdown::utils::create_new;
+use sitdown::{site::Site, ASSET_DIR, IN_DIR, TEMPLATE_DIR};
+use std::{collections::HashSet, net::SocketAddr, time::Duration};
 use tower_http::{services::ServeDir, trace::TraceLayer};
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 
@@ -18,10 +21,17 @@ struct Args {
 
 #[derive(Subcommand)]
 enum Commands {
+    /// create a new minimal site
+    New {
+        /// name of the new site
+        name: String,
+    },
     /// start the server
     Serve,
     /// generate the files to serve
     Generate,
+    /// watch for updates and re-generate site
+    Watch,
 }
 
 #[tokio::main]
@@ -42,7 +52,52 @@ async fn main() {
         Commands::Generate => {
             Site::new().run();
         }
+        Commands::Watch => {
+            env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("info"))
+                .init();
+            if let Err(err) = watch() {
+                log::error!("Encountered error `{err:?}`");
+            }
+        }
+        Commands::New { name } => {
+            env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("info"))
+                .init();
+            if let Err(err) = create_new(name) {
+                log::error!("Encountered error `{err}`");
+            }
+        }
     }
+}
+
+fn watch() -> notify::Result<()> {
+    let (tx, rx) = std::sync::mpsc::channel();
+
+    let mut debouncer = new_debouncer(Duration::from_secs(2), None, tx)?;
+
+    debouncer
+        .watcher()
+        .watch(ASSET_DIR.as_ref(), RecursiveMode::Recursive)?;
+    debouncer
+        .watcher()
+        .watch(TEMPLATE_DIR.as_ref(), RecursiveMode::Recursive)?;
+    debouncer
+        .watcher()
+        .watch(IN_DIR.as_ref(), RecursiveMode::Recursive)?;
+
+    for res in rx {
+        match res {
+            Ok(event) => {
+                let updated: HashSet<_> = event.into_iter().flat_map(|e| e.paths.clone()).collect();
+                log::info!("Changes in: {updated:?}");
+                log::info!("Regenerating");
+                Site::new().run();
+            }
+            Err(error) => {
+                println!("Error received `{error:?}`");
+            }
+        }
+    }
+    Ok(())
 }
 
 fn using_serve_dir() -> Router {
