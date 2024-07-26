@@ -43,7 +43,7 @@ async fn main() {
             tracing_subscriber::registry()
                 .with(
                     tracing_subscriber::EnvFilter::try_from_default_env()
-                        .unwrap_or_else(|_| "static_site=debug,tower_http=debug".into()),
+                        .unwrap_or_else(|_| "sitdown=debug,tower_http=debug".into()),
                 )
                 .with(tracing_subscriber::fmt::layer())
                 .init();
@@ -115,7 +115,7 @@ fn using_serve_dir() -> Router {
 async fn serve(app: Router, port: u16) {
     let addr = SocketAddr::from(([127, 0, 0, 1], port));
     let listener = tokio::net::TcpListener::bind(addr).await.unwrap();
-    tracing::debug!("listening on {}", listener.local_addr().unwrap());
+    tracing::info!("listening on {}", listener.local_addr().unwrap());
     axum::serve(listener, app.layer(TraceLayer::new_for_http()))
         .await
         .unwrap();
