@@ -3,6 +3,7 @@ use clap::{Parser, Subcommand};
 use notify::{RecursiveMode, Watcher};
 use notify_debouncer_full::new_debouncer;
 use sitdown::utils::create_new;
+use sitdown::OUT_DIR;
 use sitdown::{site::Site, ASSET_DIR, IN_DIR, TEMPLATE_DIR};
 use std::{collections::HashSet, net::SocketAddr, time::Duration};
 use tower_http::{services::ServeDir, trace::TraceLayer};
@@ -101,7 +102,7 @@ fn watch() -> notify::Result<()> {
 }
 
 fn using_serve_dir() -> Router {
-    Router::new().nest_service("/", ServeDir::new("site"))
+    Router::new().nest_service("/", ServeDir::new(OUT_DIR))
 }
 
 async fn serve(app: Router, port: u16) {
