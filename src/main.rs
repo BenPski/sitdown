@@ -5,15 +5,13 @@ use notify_debouncer_full::new_debouncer;
 use sitdown::utils::create_new;
 use sitdown::OUT_DIR;
 use sitdown::{site::Site, ASSET_DIR, IN_DIR, TEMPLATE_DIR};
+use std::fs;
 use std::{collections::HashSet, net::SocketAddr, time::Duration};
 use tower_http::{services::ServeDir, trace::TraceLayer};
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 
-// struct AppState {
-//     env: Environment<'static>,
-// }
-
 #[derive(Parser)]
+#[command(about, version)]
 struct Args {
     /// command
     #[command(subcommand)]
@@ -31,8 +29,10 @@ enum Commands {
     Serve,
     /// generate the files to serve
     Generate,
-    /// watch for updates and re-generate site
+    /// watch for updates and re-generate site on updates
     Watch,
+    /// clean up the generated files
+    Clean,
 }
 
 #[tokio::main]
@@ -64,6 +64,13 @@ async fn main() {
             env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("info"))
                 .init();
             if let Err(err) = create_new(name) {
+                log::error!("Encountered error `{err}`");
+            }
+        }
+        Commands::Clean => {
+            env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("info"))
+                .init();
+            if let Err(err) = fs::remove_dir_all(OUT_DIR) {
                 log::error!("Encountered error `{err}`");
             }
         }
