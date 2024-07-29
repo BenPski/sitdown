@@ -1,7 +1,10 @@
 use axum::Router;
 use clap::{Parser, Subcommand};
+use figment::providers::{Format, Serialized, Toml};
+use figment::Figment;
 use notify::{RecursiveMode, Watcher};
 use notify_debouncer_full::new_debouncer;
+use sitdown::config::Config;
 use sitdown::utils::create_new;
 use sitdown::OUT_DIR;
 use sitdown::{site::Site, ASSET_DIR, IN_DIR, TEMPLATE_DIR};
@@ -37,6 +40,8 @@ enum Commands {
 
 #[tokio::main]
 async fn main() {
+    let config =
+        Figment::from(Serialized::defaults(Config::default())).merge(Toml::file("sitdown.toml"));
     let args = Args::parse();
     match args.command {
         Commands::Serve => {

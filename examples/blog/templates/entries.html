@@ -1,0 +1,21 @@
+{% extends "layout" %}
+{% block title %}{{ super() }} | {{ title }} {% endblock %}
+{% block body %}
+<h1>{{ title }}</h1>
+<div class="collapse">
+{% for item in entries recursive %}
+	{% if item.children %}
+		<details>
+		<summary>
+			<a href={{ item.link }}>{{ item.title }}</a>
+		</summary>
+			<div class="children">{{ loop(item.children) }}</div>
+		</details>
+	{% else %}
+		<div class="detail"><a href={{ item.link }}>{{ item.title }}</a></div>
+	{% endif %}
+{% endfor %}
+</div>
+
+{% endblock %}
+ 

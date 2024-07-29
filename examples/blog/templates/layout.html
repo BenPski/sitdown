@@ -1,0 +1,31 @@
+<!doctype html>
+<html>
+
+<head>
+	<title>{% block title %}Blog{% endblock %}</title>
+	<link rel="stylesheet" type="text/css" href="/assets/css/default.css" />
+</head>
+
+<body>
+	<div class="header">
+		<a href="/index.html">
+			<h1>Blog</h1>
+		</a>
+	</div>
+	<nav>
+		<div class="navbar">
+			<a href="/index.html">Home</a>
+			<a href="/logs/index.html">Logs</a>
+		</div>
+
+	</nav>
+	<div class="content">
+		{% block body %}{% endblock %}
+	</div>
+	<div class="footer">
+		Footer stuff like attribution.
+	</div>
+</body>
+
+</html>
+ 

@@ -1,6 +1,9 @@
+pub mod config;
 pub mod file_tree;
 pub mod header;
 pub mod info;
+pub mod page;
+pub mod path;
 pub mod site;
 pub mod utils;
 

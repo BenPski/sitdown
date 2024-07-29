@@ -1,0 +1,14 @@
+{% extends "layout" %}
+{% block title %}{{ super() }} | {{title }} {% endblock %}
+{% block sidebar %}
+<ol>
+	<li><a href="introduction.html">Introduction</a></li>
+	<li><a href="content.html">Content</a></li>
+	<li><a href="ending.html">Ending</a></li>
+</ol>
+{% endblock %}
+{% block body %}
+<h1>{{ title }}</h1>
+<p>{{ content }}</p>
+{% endblock %}
+ 

@@ -1,0 +1,7 @@
+[Layout]
+contents = "pages"
+static = "assets"
+templates = "templates"
+
+[Default]
+page = "content"
