@@ -1,54 +1,142 @@
-use figment::{providers::Env, Error, Figment, Metadata, Provider};
+use figment::{Error, Figment, Metadata, Provider};
 use pulldown_cmark::Options;
 use serde::{Deserialize, Serialize};
 
-/// config for generating the site
-/// includes the directories to target and the names of the default templates
-#[derive(Debug, Serialize, Deserialize)]
+/// config for managing the site
+#[derive(Debug, Default, Serialize, Deserialize)]
 pub struct Config {
-    /// the directory that all the markdown files are contained in
-    pub content_dir: String,
-    /// the static assets like css, javascript, or media
-    pub asset_dir: String,
-    /// the directory with the template files
-    pub template_dir: String,
-    /// name of the default page template
-    pub page_template: String,
+    pub structure: ConfigStructure,
+    pub options: ConfigOptions,
+    pub defaults: ConfigDefaults,
 }
 
-impl Default for Config {
+/// config for defining the layout of the site
+#[derive(Debug, Serialize, Deserialize)]
+pub struct ConfigStructure {
+    /// the directory that hold all the markdown files
+    pub content: String,
+    /// static files that don't need processing like css, js, and media
+    pub assest: String,
+    /// the jinja templates
+    pub template: String,
+}
+
+/// config defining the defaults to be used in the site generation
+#[derive(Debug, Serialize, Deserialize)]
+pub struct ConfigDefaults {
+    /// the default template for a page
+    pub page: String,
+}
+
+/// config options for the markdown parsing
+#[derive(Debug, Serialize, Deserialize)]
+pub struct ConfigOptions {
+    /// enable math mode
+    pub math: bool,
+}
+
+impl Default for ConfigStructure {
     fn default() -> Self {
-        Config {
-            content_dir: "content".into(),
-            asset_dir: "assets".into(),
-            template_dir: "templates".into(),
-            page_template: "default".into(),
+        Self {
+            content: "content".into(),
+            assest: "assets".into(),
+            template: "templates".into(),
         }
+    }
+}
+
+impl Default for ConfigDefaults {
+    fn default() -> Self {
+        Self {
+            page: "content".into(),
+        }
+    }
+}
+
+impl Default for ConfigOptions {
+    fn default() -> Self {
+        Self { math: true }
     }
 }
 
 impl Config {
     pub fn figment() -> Figment {
-        Figment::from(Config::default()).merge(Env::prefixed("SITDOWN_"))
+        Figment::from(Self::default())
     }
-
-    pub fn from<T: Provider>(provider: T) -> Result<Self, Error> {
+    fn from<T: Provider>(provider: T) -> Result<Self, Error> {
         Figment::from(provider).extract()
-    }
-
-    pub fn options(&self) -> Options {
-        let mut options = Options::empty();
-        options.insert(Options::ENABLE_YAML_STYLE_METADATA_BLOCKS);
-        options.insert(Options::ENABLE_MATH);
-        options
     }
 }
 
 impl Provider for Config {
-    fn metadata(&self) -> figment::Metadata {
+    fn metadata(&self) -> Metadata {
         Metadata::named("Sitdown config")
     }
     fn data(&self) -> Result<figment::value::Map<figment::Profile, figment::value::Dict>, Error> {
-        figment::providers::Serialized::defaults(Config::default()).data()
+        figment::providers::Serialized::defaults(Self::default()).data()
+    }
+}
+
+impl ConfigStructure {
+    fn figment() -> Figment {
+        Figment::from(Self::default())
+    }
+
+    fn from<T: Provider>(provider: T) -> Result<Self, Error> {
+        Figment::from(provider).extract()
+    }
+}
+
+impl Provider for ConfigStructure {
+    fn metadata(&self) -> figment::Metadata {
+        Metadata::named("Sitdown file structure")
+    }
+    fn data(&self) -> Result<figment::value::Map<figment::Profile, figment::value::Dict>, Error> {
+        figment::providers::Serialized::defaults(Self::default()).data()
+    }
+}
+
+impl ConfigDefaults {
+    fn figment() -> Figment {
+        Figment::from(Self::default())
+    }
+
+    fn from<T: Provider>(provider: T) -> Result<Self, Error> {
+        Figment::from(provider).extract()
+    }
+}
+
+impl Provider for ConfigDefaults {
+    fn metadata(&self) -> figment::Metadata {
+        Metadata::named("Sitdown defaults")
+    }
+    fn data(&self) -> Result<figment::value::Map<figment::Profile, figment::value::Dict>, Error> {
+        figment::providers::Serialized::defaults(Self::default()).data()
+    }
+}
+
+impl ConfigOptions {
+    fn figment() -> Figment {
+        Figment::from(Self::default())
+    }
+    fn from<T: Provider>(provider: T) -> Result<Self, Error> {
+        Figment::from(provider).extract()
+    }
+    pub fn options(&self) -> Options {
+        let mut options = Options::empty();
+        options.insert(Options::ENABLE_YAML_STYLE_METADATA_BLOCKS);
+        if self.math {
+            options.insert(Options::ENABLE_MATH);
+        }
+        options
+    }
+}
+
+impl Provider for ConfigOptions {
+    fn metadata(&self) -> Metadata {
+        Metadata::named("Sitdown parser options")
+    }
+    fn data(&self) -> Result<figment::value::Map<figment::Profile, figment::value::Dict>, Error> {
+        figment::providers::Serialized::defaults(Self::default()).data()
     }
 }

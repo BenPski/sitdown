@@ -1,9 +1,10 @@
+use pulldown_cmark::Options;
 use std::{
     fs, io,
     path::{Path, PathBuf},
 };
 
-use crate::{config::Config, document::Document};
+use crate::{config::ConfigDefaults, document::Document};
 
 /// representation of the file structure
 /// make use of Object interface in jinja to make each piece have field accessors
@@ -114,9 +115,12 @@ impl Dir {
         Ok(())
     }
 
-    pub fn documents(&self, config: &Config) -> Vec<Document> {
-        let mut res: Vec<Document> = self.pages().map(|p| Document::new(config, p)).collect();
-        let subdirs = self.dirs().flat_map(|d| d.documents(config));
+    pub fn documents(&self, options: &Options, config: &ConfigDefaults) -> Vec<Document> {
+        let mut res: Vec<Document> = self
+            .pages()
+            .map(|p| Document::new(options, config, p))
+            .collect();
+        let subdirs = self.dirs().flat_map(|d| d.documents(options, config));
         res.extend(subdirs);
         res
     }
