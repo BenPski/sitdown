@@ -3,11 +3,7 @@ use std::{
     path::{Path, PathBuf},
 };
 
-use crate::{
-    file_tree::{Dir, File},
-    info::{DirInfo, PageInfo},
-    ASSET_DIR, IN_DIR, TEMPLATE_DIR,
-};
+use crate::{ASSET_DIR, IN_DIR, TEMPLATE_DIR};
 
 pub fn copy_dir(from: impl AsRef<Path>, to: impl AsRef<Path>) -> io::Result<()> {
     fs::create_dir_all(&to)?;
@@ -23,19 +19,19 @@ pub fn copy_dir(from: impl AsRef<Path>, to: impl AsRef<Path>) -> io::Result<()> 
     Ok(())
 }
 
-pub fn extract_work(dir: &Dir, dir_info: &mut Vec<DirInfo>, page_info: &mut Vec<PageInfo>) {
-    dir_info.push(DirInfo::from(dir));
-    for child in &dir.children {
-        match child {
-            File::Dir(d) => {
-                extract_work(d, dir_info, page_info);
-            }
-            File::Page(p) => {
-                page_info.push(PageInfo::from(p));
-            }
-        }
-    }
-}
+// pub fn extract_work(dir: &Dir, dir_info: &mut Vec<DirInfo>, page_info: &mut Vec<PageInfo>) {
+//     dir_info.push(DirInfo::from(dir));
+//     for child in &dir.children {
+//         match child {
+//             File::Dir(d) => {
+//                 extract_work(d, dir_info, page_info);
+//             }
+//             File::Page(p) => {
+//                 page_info.push(PageInfo::from(p));
+//             }
+//         }
+//     }
+// }
 
 pub fn create_new(name: String) -> io::Result<()> {
     let in_dir = PathBuf::from(&name).join(IN_DIR);

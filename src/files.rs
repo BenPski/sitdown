@@ -3,8 +3,6 @@ use std::{
     path::{Path, PathBuf},
 };
 
-use minijinja::Environment;
-
 use crate::{config::Config, document::Document};
 
 /// representation of the file structure

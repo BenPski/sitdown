@@ -7,10 +7,6 @@ authors = ["Ben Pawlowski ben@pepski.com"]
 version = "0.1.0"
 edition = "2021"
 
-[[bin]]
-name = "test"
-path = "src/test.rs"
-
 [dependencies]
 axum = "0.7.5"
 clap = { version = "4.5.10", features = ["derive"] }

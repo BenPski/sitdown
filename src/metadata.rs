@@ -16,22 +16,22 @@ pub struct Metadata {
 }
 
 impl Metadata {
-    fn title(mut self, title: impl Into<Option<String>>) -> Self {
-        self.title = title.into();
-        self
-    }
-    fn location(mut self, location: impl Into<Option<PathBuf>>) -> Self {
-        self.location = location.into();
-        self
-    }
-    fn layout(mut self, layout: impl Into<Option<String>>) -> Self {
-        self.layout = layout.into();
-        self
-    }
-    fn meta(mut self, meta: impl Into<HashMap<String, serde_yml::Value>>) -> Self {
-        self.meta = meta.into();
-        self
-    }
+    // fn title(mut self, title: impl Into<Option<String>>) -> Self {
+    //     self.title = title.into();
+    //     self
+    // }
+    // fn location(mut self, location: impl Into<Option<PathBuf>>) -> Self {
+    //     self.location = location.into();
+    //     self
+    // }
+    // fn layout(mut self, layout: impl Into<Option<String>>) -> Self {
+    //     self.layout = layout.into();
+    //     self
+    // }
+    // fn meta(mut self, meta: impl Into<HashMap<String, serde_yml::Value>>) -> Self {
+    //     self.meta = meta.into();
+    //     self
+    // }
     pub fn merge(mut self, other: impl Into<Metadata>) -> Self {
         let other = other.into();
         self.title = self.title.or(other.title);
