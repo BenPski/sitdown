@@ -1,7 +1,5 @@
-use figment::{
-    providers::{Env, Format, Toml},
-    Error, Figment, Metadata, Provider,
-};
+use figment::{providers::Env, Error, Figment, Metadata, Provider};
+use pulldown_cmark::Options;
 use serde::{Deserialize, Serialize};
 
 /// config for generating the site
@@ -9,13 +7,13 @@ use serde::{Deserialize, Serialize};
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Config {
     /// the directory that all the markdown files are contained in
-    content_dir: String,
+    pub content_dir: String,
     /// the static assets like css, javascript, or media
-    asset_dir: String,
+    pub asset_dir: String,
     /// the directory with the template files
-    template_dir: String,
+    pub template_dir: String,
     /// name of the default page template
-    page_template: String,
+    pub page_template: String,
 }
 
 impl Default for Config {
@@ -36,6 +34,13 @@ impl Config {
 
     pub fn from<T: Provider>(provider: T) -> Result<Self, Error> {
         Figment::from(provider).extract()
+    }
+
+    pub fn options(&self) -> Options {
+        let mut options = Options::empty();
+        options.insert(Options::ENABLE_YAML_STYLE_METADATA_BLOCKS);
+        options.insert(Options::ENABLE_MATH);
+        options
     }
 }
 

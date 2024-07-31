@@ -1,13 +1,11 @@
 use axum::Router;
 use clap::{Parser, Subcommand};
-use figment::providers::{Format, Serialized, Toml};
-use figment::Figment;
 use notify::{RecursiveMode, Watcher};
 use notify_debouncer_full::new_debouncer;
-use sitdown::config::Config;
+use sitdown::app::App;
 use sitdown::utils::create_new;
 use sitdown::OUT_DIR;
-use sitdown::{site::Site, ASSET_DIR, IN_DIR, TEMPLATE_DIR};
+use sitdown::{ASSET_DIR, IN_DIR, TEMPLATE_DIR};
 use std::fs;
 use std::{collections::HashSet, net::SocketAddr, time::Duration};
 use tower_http::{services::ServeDir, trace::TraceLayer};
@@ -40,8 +38,6 @@ enum Commands {
 
 #[tokio::main]
 async fn main() {
-    let config =
-        Figment::from(Serialized::defaults(Config::default())).merge(Toml::file("sitdown.toml"));
     let args = Args::parse();
     match args.command {
         Commands::Serve => {
@@ -56,7 +52,9 @@ async fn main() {
             tokio::join!(serve(using_serve_dir(), 3000));
         }
         Commands::Generate => {
-            Site::new().run();
+            let app = App::new();
+            app.create().unwrap();
+            // Site::new().run();
         }
         Commands::Watch => {
             env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("info"))
@@ -103,7 +101,7 @@ fn watch() -> notify::Result<()> {
                 let updated: HashSet<_> = event.into_iter().flat_map(|e| e.paths.clone()).collect();
                 log::info!("Changes in: {updated:?}");
                 log::info!("Regenerating");
-                Site::new().run();
+                App::new().create()?;
             }
             Err(error) => {
                 println!("Error received `{error:?}`");
