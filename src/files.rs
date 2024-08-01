@@ -4,7 +4,7 @@ use std::{
     path::{Path, PathBuf},
 };
 
-use crate::{config::ConfigDefaults, document::Document};
+use crate::{config::ConfigDefaults, document::Document, full_meta::DirMeta, meta::FileMeta};
 
 /// representation of the file structure
 /// make use of Object interface in jinja to make each piece have field accessors
@@ -72,18 +72,6 @@ impl Dir {
         }
     }
 
-    // // a dumb way of making the iterator that should be improved
-    // pub fn children(self) -> Vec<File> {
-    //     let mut files = Vec::new();
-    //     for page in self.pages {
-    //         files.push(File::Page(page));
-    //     }
-    //     for dir in self.subdirs {
-    //         files.push(File::Dir(dir));
-    //     }
-    //     files
-    // }
-
     pub fn pages<'a>(&'a self) -> PagesIter<'a> {
         PagesIter {
             pages: &self.pages,
@@ -123,6 +111,20 @@ impl Dir {
         let subdirs = self.dirs().flat_map(|d| d.documents(options, config));
         res.extend(subdirs);
         res
+    }
+
+    pub fn meta_tree(&self, options: &Options, config: &ConfigDefaults) -> FileMeta {
+        let mut entries = Vec::new();
+        for doc in self.documents(options, config) {
+            entries.push(FileMeta::from_doc(doc));
+        }
+        for dir in self.dirs() {
+            entries.push(dir.meta_tree(options, config));
+        }
+        FileMeta {
+            page: Document::default(),
+            entries,
+        }
     }
 
     // pub fn create_files<'a>(

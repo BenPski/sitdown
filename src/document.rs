@@ -19,7 +19,7 @@ use crate::{
 };
 
 /// the page data, both the metadata and the contents of the file
-#[derive(Debug, Serialize)]
+#[derive(Default, Debug, Serialize)]
 pub struct Document {
     #[serde(flatten)]
     pub metadata: Metadata,
@@ -80,12 +80,9 @@ impl Document {
 
     pub fn create<'a>(&self, templates: &Environment<'a>) -> std::io::Result<()> {
         let layout = self.metadata.layout.as_ref();
-        println!("layout: {layout:?}");
         let template = templates.get_template(&layout).unwrap();
-        println!("values being passed: {:?}", Value::from_serialize(self));
         let content = template.render(Value::from_serialize(self)).unwrap();
         let path = PathBuf::from(OUT_DIR).join(&self.metadata.location);
-        println!("Creating: {path:?}");
         fs::create_dir_all(path.parent().unwrap())?;
         fs::write(path, content)?;
         Ok(())

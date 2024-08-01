@@ -5,6 +5,7 @@ use pulldown_cmark::Options;
 use crate::{
     config::{Config, ConfigDefaults, ConfigOptions, ConfigStructure},
     files::Dir,
+    meta::FileMeta,
     templates, OUT_DIR,
 };
 
@@ -47,10 +48,8 @@ impl<'a> App<'a> {
     }
 
     fn create_pages(&self) -> std::io::Result<()> {
-        let docs = self.content.documents(&self.options, &self.defaults);
-        for doc in docs {
-            doc.create(&self.templates)?;
-        }
+        let tree = FileMeta::from_dir(&self.content, &self.options, &self.defaults);
+        tree.traverse(&self.templates);
         Ok(())
     }
 

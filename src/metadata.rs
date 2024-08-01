@@ -23,7 +23,7 @@ pub struct DefaultMetadata {
 }
 
 /// metadata that defines the template and parameters to give to the template
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Default, Debug, Serialize, Deserialize)]
 pub struct Metadata {
     pub layout: String,
     pub title: String,
