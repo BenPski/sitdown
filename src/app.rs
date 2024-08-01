@@ -1,42 +1,43 @@
 use figment::providers::{Format, Toml};
 use minijinja::Environment;
+use pulldown_cmark::Options;
 
-use crate::{config::Config, files::Dir, templates, OUT_DIR};
+use crate::{
+    config::{Config, ConfigDefaults, ConfigOptions, ConfigStructure},
+    files::Dir,
+    meta::FileMeta,
+    templates, OUT_DIR,
+};
 
 /// The app represents the state of the site to generate
-
-pub struct Info<'a> {
-    config: Config,
-    templates: Environment<'a>,
-}
-
-impl<'a> Info<'a> {
-    fn new() -> Self {
-        let config: Config = Config::figment()
-            .merge(Toml::file("sitdown.toml"))
-            .extract()
-            .unwrap();
-        let templates = templates::get_env(&config.template_dir).unwrap();
-        println!("config: {:?}", config);
-        println!("templates: {:?}", templates);
-        Self { config, templates }
-    }
-}
-
 pub struct App<'a> {
-    info: Info<'a>,
+    structure: ConfigStructure,
+    options: Options,
+    defaults: ConfigDefaults,
+    templates: Environment<'a>,
     content: Dir,
     assets: Dir,
 }
 
 impl<'a> App<'a> {
     pub fn new() -> Self {
-        let info = Info::new();
-        let content = Dir::new(&info.config.content_dir);
-        let assets = Dir::new(&info.config.asset_dir);
+        let config: Config = Config::figment()
+            .merge(Toml::file("sitdown.yaml"))
+            .extract()
+            .unwrap();
+        let structure = config.structure;
+        let options = config.options.options();
+        let defaults = config.defaults;
+
+        let templates = templates::get_env(&structure.template).unwrap();
+        let content = Dir::new(&structure.content);
+        let assets = Dir::new(&structure.assest);
 
         App {
-            info,
+            structure,
+            options,
+            defaults,
+            templates,
             content,
             assets,
         }
@@ -47,10 +48,8 @@ impl<'a> App<'a> {
     }
 
     fn create_pages(&self) -> std::io::Result<()> {
-        let docs = self.content.documents(&self.info.config);
-        for doc in docs {
-            doc.create(&self.info.templates)?;
-        }
+        let tree = FileMeta::from_dir(&self.content, &self.options, &self.defaults);
+        tree.traverse(&self.templates);
         Ok(())
     }
 
