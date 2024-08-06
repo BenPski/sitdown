@@ -2,6 +2,13 @@ use figment::{Error, Figment, Metadata, Provider};
 use pulldown_cmark::Options;
 use serde::{Deserialize, Serialize};
 
+/// default directory values
+pub const IN_DIR: &str = "content";
+pub const OUT_DIR: &str = "_site";
+pub const ASSET_DIR: &str = "assets";
+pub const TEMPLATE_DIR: &str = "templates";
+pub const WORK_DIR: &str = "_work";
+
 /// config for managing the site
 #[derive(Debug, Default, Serialize, Deserialize)]
 pub struct Config {
@@ -16,9 +23,13 @@ pub struct ConfigStructure {
     /// the directory that hold all the markdown files
     pub content: String,
     /// static files that don't need processing like css, js, and media
-    pub assest: String,
+    pub assets: String,
     /// the jinja templates
     pub template: String,
+    /// the dir that metadata gets written to and read from
+    pub work: String,
+    /// the output directory that is used for serving the pages
+    pub site: String,
 }
 
 /// config defining the defaults to be used in the site generation
@@ -38,9 +49,11 @@ pub struct ConfigOptions {
 impl Default for ConfigStructure {
     fn default() -> Self {
         Self {
-            content: "content".into(),
-            assest: "assets".into(),
-            template: "templates".into(),
+            content: IN_DIR.into(),
+            assets: ASSET_DIR.into(),
+            template: TEMPLATE_DIR.into(),
+            work: WORK_DIR.into(),
+            site: OUT_DIR.into(),
         }
     }
 }
@@ -63,7 +76,7 @@ impl Config {
     pub fn figment() -> Figment {
         Figment::from(Self::default())
     }
-    fn from<T: Provider>(provider: T) -> Result<Self, Error> {
+    pub fn from<T: Provider>(provider: T) -> Result<Self, Error> {
         Figment::from(provider).extract()
     }
 }
@@ -77,15 +90,15 @@ impl Provider for Config {
     }
 }
 
-impl ConfigStructure {
-    fn figment() -> Figment {
-        Figment::from(Self::default())
-    }
-
-    fn from<T: Provider>(provider: T) -> Result<Self, Error> {
-        Figment::from(provider).extract()
-    }
-}
+// impl ConfigStructure {
+//     fn figment() -> Figment {
+//         Figment::from(Self::default())
+//     }
+//
+//     fn from<T: Provider>(provider: T) -> Result<Self, Error> {
+//         Figment::from(provider).extract()
+//     }
+// }
 
 impl Provider for ConfigStructure {
     fn metadata(&self) -> figment::Metadata {
@@ -96,15 +109,15 @@ impl Provider for ConfigStructure {
     }
 }
 
-impl ConfigDefaults {
-    fn figment() -> Figment {
-        Figment::from(Self::default())
-    }
-
-    fn from<T: Provider>(provider: T) -> Result<Self, Error> {
-        Figment::from(provider).extract()
-    }
-}
+// impl ConfigDefaults {
+//     fn figment() -> Figment {
+//         Figment::from(Self::default())
+//     }
+//
+//     fn from<T: Provider>(provider: T) -> Result<Self, Error> {
+//         Figment::from(provider).extract()
+//     }
+// }
 
 impl Provider for ConfigDefaults {
     fn metadata(&self) -> figment::Metadata {
@@ -116,12 +129,12 @@ impl Provider for ConfigDefaults {
 }
 
 impl ConfigOptions {
-    fn figment() -> Figment {
-        Figment::from(Self::default())
-    }
-    fn from<T: Provider>(provider: T) -> Result<Self, Error> {
-        Figment::from(provider).extract()
-    }
+    // fn figment() -> Figment {
+    //     Figment::from(Self::default())
+    // }
+    // fn from<T: Provider>(provider: T) -> Result<Self, Error> {
+    //     Figment::from(provider).extract()
+    // }
     pub fn options(&self) -> Options {
         let mut options = Options::empty();
         options.insert(Options::ENABLE_YAML_STYLE_METADATA_BLOCKS);

@@ -1,37 +1,15 @@
-use std::{
-    fs, io,
-    path::{Path, PathBuf},
-};
+use std::{fs, io, path::PathBuf};
 
-use crate::{ASSET_DIR, IN_DIR, TEMPLATE_DIR};
+use figment::providers::{Format, Toml};
 
-pub fn copy_dir(from: impl AsRef<Path>, to: impl AsRef<Path>) -> io::Result<()> {
-    fs::create_dir_all(&to)?;
-    for entry in fs::read_dir(from)? {
-        let entry = entry?;
-        let ty = entry.file_type()?;
-        if ty.is_dir() {
-            copy_dir(entry.path(), to.as_ref().join(entry.file_name()))?;
-        } else {
-            fs::copy(entry.path(), to.as_ref().join(entry.file_name()))?;
-        }
-    }
-    Ok(())
+use crate::config::{Config, ASSET_DIR, IN_DIR, TEMPLATE_DIR};
+
+pub fn get_config() -> Config {
+    Config::figment()
+        .merge(Toml::file("sitdown.yaml"))
+        .extract()
+        .unwrap()
 }
-
-// pub fn extract_work(dir: &Dir, dir_info: &mut Vec<DirInfo>, page_info: &mut Vec<PageInfo>) {
-//     dir_info.push(DirInfo::from(dir));
-//     for child in &dir.children {
-//         match child {
-//             File::Dir(d) => {
-//                 extract_work(d, dir_info, page_info);
-//             }
-//             File::Page(p) => {
-//                 page_info.push(PageInfo::from(p));
-//             }
-//         }
-//     }
-// }
 
 pub fn create_new(name: String) -> io::Result<()> {
     let in_dir = PathBuf::from(&name).join(IN_DIR);

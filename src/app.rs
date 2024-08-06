@@ -1,37 +1,34 @@
-use figment::providers::{Format, Toml};
+use std::path::PathBuf;
+
 use minijinja::Environment;
 use pulldown_cmark::Options;
 
 use crate::{
-    config::{Config, ConfigDefaults, ConfigOptions, ConfigStructure},
-    files::Dir,
-    meta::FileMeta,
-    templates, OUT_DIR,
+    config::{Config, ConfigDefaults, ConfigStructure},
+    error::Result,
+    templates,
+    tree::{load_contents, Dir},
 };
 
 /// The app represents the state of the site to generate
 pub struct App<'a> {
-    structure: ConfigStructure,
+    structure: &'a ConfigStructure,
     options: Options,
-    defaults: ConfigDefaults,
+    defaults: &'a ConfigDefaults,
     templates: Environment<'a>,
-    content: Dir,
-    assets: Dir,
+    content: Dir<PathBuf, PathBuf>,
+    assets: Dir<PathBuf, PathBuf>,
 }
 
 impl<'a> App<'a> {
-    pub fn new() -> Self {
-        let config: Config = Config::figment()
-            .merge(Toml::file("sitdown.yaml"))
-            .extract()
-            .unwrap();
-        let structure = config.structure;
+    pub fn new(config: &'a Config) -> Self {
+        let structure = &config.structure;
         let options = config.options.options();
-        let defaults = config.defaults;
+        let defaults = &config.defaults;
 
         let templates = templates::get_env(&structure.template).unwrap();
-        let content = Dir::new(&structure.content);
-        let assets = Dir::new(&structure.assest);
+        let content = load_contents(&structure.content).unwrap();
+        let assets = load_contents(&structure.assets).unwrap();
 
         App {
             structure,
@@ -43,17 +40,19 @@ impl<'a> App<'a> {
         }
     }
 
-    fn copy_assets(&self) -> std::io::Result<()> {
-        self.assets.copy_to(OUT_DIR)
+    fn copy_assets(&self) -> Result<()> {
+        let res = self.assets.copy_to(&self.structure.site)?;
+        Ok(res)
     }
 
-    fn create_pages(&self) -> std::io::Result<()> {
-        let tree = FileMeta::from_dir(&self.content, &self.options, &self.defaults);
-        tree.traverse(&self.templates);
+    fn create_pages(&self) -> Result<()> {
+        let parsed_tree = self.content.annotate(&self.defaults, &self.options)?;
+        let meta_tree = parsed_tree.write_metadata(&self.structure.work)?;
+        meta_tree.create(&self.structure.site, &self.templates)?;
         Ok(())
     }
 
-    pub fn create(&self) -> std::io::Result<()> {
+    pub fn create(&self) -> Result<()> {
         self.copy_assets().and_then(|_| self.create_pages())
     }
 }

@@ -3,9 +3,7 @@ use clap::{Parser, Subcommand};
 use notify::{RecursiveMode, Watcher};
 use notify_debouncer_full::new_debouncer;
 use sitdown::app::App;
-use sitdown::utils::create_new;
-use sitdown::OUT_DIR;
-use sitdown::{ASSET_DIR, IN_DIR, TEMPLATE_DIR};
+use sitdown::utils::{create_new, get_config};
 use std::fs;
 use std::{collections::HashSet, net::SocketAddr, time::Duration};
 use tower_http::{services::ServeDir, trace::TraceLayer};
@@ -52,7 +50,8 @@ async fn main() {
             tokio::join!(serve(using_serve_dir(), 3000));
         }
         Commands::Generate => {
-            let app = App::new();
+            let config = get_config();
+            let app = App::new(&config);
             app.create().unwrap();
             // Site::new().run();
         }
@@ -71,29 +70,35 @@ async fn main() {
             }
         }
         Commands::Clean => {
+            let config = get_config();
             env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("info"))
                 .init();
-            if let Err(err) = fs::remove_dir_all(OUT_DIR) {
+            if let Err(err) = fs::remove_dir_all(config.structure.site) {
                 log::error!("Encountered error `{err}`");
             }
-        }
+
+            if let Err(err) = fs::remove_dir_all(config.structure.work) {
+                log::error!("Encountered error `{err}`");
+            }
+        } // _ => println!("lol"),
     }
 }
 
 fn watch() -> notify::Result<()> {
+    let config = get_config();
     let (tx, rx) = std::sync::mpsc::channel();
 
     let mut debouncer = new_debouncer(Duration::from_secs(2), None, tx)?;
 
     debouncer
         .watcher()
-        .watch(ASSET_DIR.as_ref(), RecursiveMode::Recursive)?;
+        .watch(config.structure.assets.as_ref(), RecursiveMode::Recursive)?;
     debouncer
         .watcher()
-        .watch(TEMPLATE_DIR.as_ref(), RecursiveMode::Recursive)?;
+        .watch(config.structure.template.as_ref(), RecursiveMode::Recursive)?;
     debouncer
         .watcher()
-        .watch(IN_DIR.as_ref(), RecursiveMode::Recursive)?;
+        .watch(config.structure.content.as_ref(), RecursiveMode::Recursive)?;
 
     for res in rx {
         match res {
@@ -101,7 +106,7 @@ fn watch() -> notify::Result<()> {
                 let updated: HashSet<_> = event.into_iter().flat_map(|e| e.paths.clone()).collect();
                 log::info!("Changes in: {updated:?}");
                 log::info!("Regenerating");
-                App::new().create()?;
+                App::new(&config).create().unwrap();
             }
             Err(error) => {
                 println!("Error received `{error:?}`");
@@ -112,7 +117,8 @@ fn watch() -> notify::Result<()> {
 }
 
 fn using_serve_dir() -> Router {
-    Router::new().nest_service("/", ServeDir::new(OUT_DIR))
+    let config = get_config();
+    Router::new().nest_service("/", ServeDir::new(config.structure.site))
 }
 
 async fn serve(app: Router, port: u16) {
