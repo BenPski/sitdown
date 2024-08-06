@@ -1,6 +1,5 @@
 use std::path::PathBuf;
 
-use figment::providers::{Format, Toml};
 use minijinja::Environment;
 
 use crate::{
@@ -12,7 +11,7 @@ use crate::{
 
 /// The app represents the state of the site to generate
 pub struct App<'a> {
-    structure: ConfigStructure,
+    structure: &'a ConfigStructure,
     // options: Options,
     // defaults: ConfigDefaults,
     templates: Environment<'a>,
@@ -20,15 +19,11 @@ pub struct App<'a> {
     assets: Dir<PathBuf, PathBuf>,
 }
 
-impl App<'static> {
-    pub fn new() -> Self {
-        let config: Config = Config::figment()
-            .merge(Toml::file("sitdown.yaml"))
-            .extract()
-            .unwrap();
-        let structure = config.structure;
+impl<'a> App<'a> {
+    pub fn new(config: &'a Config) -> Self {
+        let structure = &config.structure;
         let options = config.options.options();
-        let defaults = config.defaults;
+        let defaults = &config.defaults;
 
         let templates = templates::get_env(&structure.template).unwrap();
         let content = load_contents(&structure.content)
@@ -55,7 +50,7 @@ impl App<'static> {
     fn create_pages(&self) -> Result<()> {
         let meta_tree = self.content.write_metadata(&self.structure.work)?;
         println!("tree after writing metadata: {:?}", meta_tree);
-        meta_tree.create(&self.structure.site, &self.templates);
+        meta_tree.create(&self.structure.site, &self.templates)?;
         Ok(())
     }
 
