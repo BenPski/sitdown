@@ -138,6 +138,7 @@ impl ConfigOptions {
     pub fn options(&self) -> Options {
         let mut options = Options::empty();
         options.insert(Options::ENABLE_YAML_STYLE_METADATA_BLOCKS);
+        options.insert(Options::ENABLE_TABLES);
         if self.math {
             options.insert(Options::ENABLE_MATH);
         }
