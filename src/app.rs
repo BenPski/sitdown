@@ -1,21 +1,22 @@
 use std::path::PathBuf;
 
 use minijinja::Environment;
+use pulldown_cmark::Options;
 
 use crate::{
-    config::{Config, ConfigStructure},
+    config::{Config, ConfigDefaults, ConfigStructure},
     error::Result,
     templates,
-    tree::{load_contents, Dir, DirInfo, PageInfo},
+    tree::{load_contents, Dir},
 };
 
 /// The app represents the state of the site to generate
 pub struct App<'a> {
     structure: &'a ConfigStructure,
-    // options: Options,
-    // defaults: ConfigDefaults,
+    options: Options,
+    defaults: &'a ConfigDefaults,
     templates: Environment<'a>,
-    content: Dir<DirInfo, PageInfo>,
+    content: Dir<PathBuf, PathBuf>,
     assets: Dir<PathBuf, PathBuf>,
 }
 
@@ -26,16 +27,13 @@ impl<'a> App<'a> {
         let defaults = &config.defaults;
 
         let templates = templates::get_env(&structure.template).unwrap();
-        let content = load_contents(&structure.content)
-            .unwrap()
-            .annotate(&defaults, &options)
-            .unwrap();
+        let content = load_contents(&structure.content).unwrap();
         let assets = load_contents(&structure.assets).unwrap();
 
         App {
             structure,
-            // options,
-            // defaults,
+            options,
+            defaults,
             templates,
             content,
             assets,
@@ -48,8 +46,8 @@ impl<'a> App<'a> {
     }
 
     fn create_pages(&self) -> Result<()> {
-        let meta_tree = self.content.write_metadata(&self.structure.work)?;
-        println!("tree after writing metadata: {:?}", meta_tree);
+        let parsed_tree = self.content.annotate(&self.defaults, &self.options)?;
+        let meta_tree = parsed_tree.write_metadata(&self.structure.work)?;
         meta_tree.create(&self.structure.site, &self.templates)?;
         Ok(())
     }
