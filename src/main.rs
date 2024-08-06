@@ -3,6 +3,7 @@ use clap::{Parser, Subcommand};
 use notify::{RecursiveMode, Watcher};
 use notify_debouncer_full::new_debouncer;
 use sitdown::app::App;
+use sitdown::error::Result;
 use sitdown::utils::{create_new, get_config};
 use std::fs;
 use std::{collections::HashSet, net::SocketAddr, time::Duration};
@@ -84,7 +85,7 @@ async fn main() {
     }
 }
 
-fn watch() -> notify::Result<()> {
+fn watch() -> Result<()> {
     let config = get_config();
     let (tx, rx) = std::sync::mpsc::channel();
 
@@ -106,7 +107,7 @@ fn watch() -> notify::Result<()> {
                 let updated: HashSet<_> = event.into_iter().flat_map(|e| e.paths.clone()).collect();
                 log::info!("Changes in: {updated:?}");
                 log::info!("Regenerating");
-                App::new(&config).create().unwrap();
+                App::new(&config).create()?;
             }
             Err(error) => {
                 println!("Error received `{error:?}`");

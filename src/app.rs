@@ -1,4 +1,4 @@
-use std::path::PathBuf;
+use std::{fs, path::PathBuf};
 
 use minijinja::Environment;
 use pulldown_cmark::Options;
@@ -40,6 +40,12 @@ impl<'a> App<'a> {
         }
     }
 
+    fn clear_dirs(&self) -> Result<()> {
+        fs::remove_dir_all(&self.structure.site)
+            .and_then(|_| fs::remove_dir_all(&self.structure.work))?;
+        Ok(())
+    }
+
     fn copy_assets(&self) -> Result<()> {
         let res = self.assets.copy_to(&self.structure.site)?;
         Ok(res)
@@ -53,6 +59,7 @@ impl<'a> App<'a> {
     }
 
     pub fn create(&self) -> Result<()> {
-        self.copy_assets().and_then(|_| self.create_pages())
+        self.clear_dirs()
+            .and_then(|_| self.copy_assets().and_then(|_| self.create_pages()))
     }
 }

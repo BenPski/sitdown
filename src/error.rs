@@ -16,6 +16,8 @@ pub enum Error {
     SerdeError(serde_yml::Error),
     #[error("Error with templating: `{0}`")]
     JinjaError(minijinja::Error),
+    #[error("Error watching files: `{0}`")]
+    NotifyError(notify::Error),
 }
 
 impl From<std::io::Error> for Error {
@@ -32,5 +34,10 @@ impl From<serde_yml::Error> for Error {
 impl From<minijinja::Error> for Error {
     fn from(value: minijinja::Error) -> Self {
         Self::JinjaError(value)
+    }
+}
+impl From<notify::Error> for Error {
+    fn from(value: notify::Error) -> Self {
+        Self::NotifyError(value)
     }
 }
