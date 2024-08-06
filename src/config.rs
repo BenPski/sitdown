@@ -2,6 +2,13 @@ use figment::{Error, Figment, Metadata, Provider};
 use pulldown_cmark::Options;
 use serde::{Deserialize, Serialize};
 
+/// default directory values
+pub const IN_DIR: &str = "content";
+pub const OUT_DIR: &str = "_site";
+pub const ASSET_DIR: &str = "assets";
+pub const TEMPLATE_DIR: &str = "templates";
+pub const WORK_DIR: &str = "_work";
+
 /// config for managing the site
 #[derive(Debug, Default, Serialize, Deserialize)]
 pub struct Config {
@@ -19,6 +26,10 @@ pub struct ConfigStructure {
     pub assets: String,
     /// the jinja templates
     pub template: String,
+    /// the dir that metadata gets written to and read from
+    pub work: String,
+    /// the output directory that is used for serving the pages
+    pub site: String,
 }
 
 /// config defining the defaults to be used in the site generation
@@ -38,9 +49,11 @@ pub struct ConfigOptions {
 impl Default for ConfigStructure {
     fn default() -> Self {
         Self {
-            content: "content".into(),
-            assets: "assets".into(),
-            template: "templates".into(),
+            content: IN_DIR.into(),
+            assets: ASSET_DIR.into(),
+            template: TEMPLATE_DIR.into(),
+            work: WORK_DIR.into(),
+            site: OUT_DIR.into(),
         }
     }
 }

@@ -1,4 +1,3 @@
-use core::panic;
 use minijinja::{value::Object, Environment};
 use pulldown_cmark::{
     CowStr::Borrowed,
@@ -12,12 +11,12 @@ use std::{
     path::{Path, PathBuf},
     sync::Arc,
 };
-use thiserror::Error;
 
 use serde::{Deserialize, Serialize};
 use serde_yml::Value;
 
-use crate::{config::ConfigDefaults, templates, META_FILE};
+use crate::error::Result;
+use crate::{config::ConfigDefaults, error::Error, META_FILE};
 
 /// the general file tree that should contain the structure of the site
 
@@ -129,9 +128,9 @@ impl Dir<PathBuf, PathBuf> {
         &self,
         config: &ConfigDefaults,
         options: &Options,
-    ) -> Result<Dir<DirInfo, PageInfo>, Error> {
-        let pages: Result<Vec<_>, _> = self.pages().map(|p| p.annotate(config, options)).collect();
-        let dirs: Result<Vec<_>, _> = self.dirs().map(|d| d.annotate(config, options)).collect();
+    ) -> Result<Dir<DirInfo, PageInfo>> {
+        let pages: Result<Vec<_>> = self.pages().map(|p| p.annotate(config, options)).collect();
+        let dirs: Result<Vec<_>> = self.dirs().map(|d| d.annotate(config, options)).collect();
         Ok(Dir {
             data: DirInfo::new(&self.data)?,
             pages: pages?,
@@ -152,19 +151,9 @@ impl Dir<PathBuf, PathBuf> {
 }
 
 impl Page<PathBuf> {
-    pub fn annotate(
-        &self,
-        config: &ConfigDefaults,
-        options: &Options,
-    ) -> Result<Page<PageInfo>, Error> {
+    pub fn annotate(&self, config: &ConfigDefaults, options: &Options) -> Result<Page<PageInfo>> {
         PageInfo::new(&self.data, config, options).map(|x| Page { data: x })
     }
-}
-
-#[derive(Debug)]
-struct TreeRefs {
-    root: Arc<Dir<Arc<DirInfo>, Arc<PageInfo>>>,
-    parent: Arc<Dir<Arc<DirInfo>, Arc<PageInfo>>>,
 }
 
 #[derive(Debug)]
@@ -186,25 +175,6 @@ pub struct PagePath {
     orig: PathBuf,
     template: String,
 }
-
-// impl Object for DirPath {
-//     fn get_value(self: &Arc<Self>, key: &minijinja::Value) -> Option<minijinja::Value> {
-//         match key.as_str()? {
-//             "pages" => {
-//             }
-//             "dirs" => {
-//                 for entry in self.path.read_dir().ok()? {
-//                     let entry = entry.ok()?;
-//
-//                 }
-//             }
-//             "title" => {
-//
-//             }
-//             _ => None,
-//         }
-//     }
-// }
 
 impl Object for Dir<Arc<DirInfo>, Arc<PageInfo>> {
     fn get_value(self: &std::sync::Arc<Self>, key: &minijinja::Value) -> Option<minijinja::Value> {
@@ -233,57 +203,41 @@ impl Object for DirPath {
         println!("Accessing {key:?} in DirPath");
         match key.as_str()? {
             "pages" => {
-                // println!("Pages: {:?}", self.path);
-                let mut pages = Vec::new();
+                let mut pages: Vec<PageInfo> = Vec::new();
                 for entry in self.path.read_dir().ok()? {
-                    // println!("Entry: {:?}", entry);
                     let entry = entry.ok()?;
-                    // println!("Entry is file: {:?}", entry.path().is_file());
                     if entry.path().is_file()
                         && entry.path().file_name() != Some(OsStr::new(META_FILE))
                     {
-                        let contents = fs::read_to_string(entry.path()).ok()?;
-                        // println!("read file");
-
-                        let meta: PageInfo = match serde_yml::from_str(&contents) {
-                            Ok(res) => res,
-                            Err(err) => {
-                                // println!("Failed to parse `{:?}` with `{}`", entry.path(), err);
-                                panic!()
-                            }
-                        };
-
-                        // let meta: Metadata = serde_yml::from_str(&contents).ok()?;
-                        // println!("parsed file");
+                        let contents = fs::read_to_string(entry.path())
+                            .inspect_err(|e| {
+                                println!("Failed to read `{:?}` with `{}`", entry.path(), e)
+                            })
+                            .ok()?;
+                        let meta = serde_yml::from_str(&contents)
+                            .inspect_err(|err| {
+                                println!("Failed to parse `{:?}` with `{}`", entry.path(), err)
+                            })
+                            .ok()?;
                         pages.push(meta);
                     }
                 }
-                println!("requested pages: {:?}", pages);
                 Some(minijinja::Value::from_serialize(pages))
             }
             "dirs" => {
-                println!("Dirs: {:?}", self.path);
-                let mut dirs = Vec::new();
-                for entry in self.path.read_dir().unwrap() {
-                    println!("Entry: {:?}", entry);
+                let mut dirs: Vec<DirInfo> = Vec::new();
+                for entry in self.path.read_dir().ok()? {
                     let entry = entry.ok()?;
-                    println!("Entry is dir: {:?}", entry.path().is_dir());
                     if entry.path().is_dir() {
-                        let contents = fs::read_to_string(entry.path().join(META_FILE)).ok()?;
-                        println!("read file");
-                        let meta: DirInfo = match serde_yml::from_str(&contents) {
-                            Ok(res) => res,
-                            Err(err) => {
-                                println!(
-                                    "Failed to parse `{:?}` with `{}`",
-                                    entry.path().join(META_FILE),
-                                    err
-                                );
-                                panic!()
-                            }
-                        };
-
-                        println!("requested dirs: {:?}", dirs);
+                        let meta_path = entry.path().join(META_FILE);
+                        let contents = fs::read_to_string(&meta_path)
+                            .inspect_err(|e| println!("Failed to read {:?} with {}", &meta_path, e))
+                            .ok()?;
+                        let meta = serde_yml::from_str(&contents)
+                            .inspect_err(|e| {
+                                println!("Failed to parse `{:?}` with `{}`", &meta_path, e)
+                            })
+                            .ok()?;
                         dirs.push(meta);
                     }
                 }
@@ -296,7 +250,6 @@ impl Object for DirPath {
 
 impl Object for MetaObject {
     fn get_value(self: &Arc<Self>, key: &minijinja::Value) -> Option<minijinja::Value> {
-        println!("Accessing {key:?} in MetaObject");
         match key.as_str()? {
             "root" => Some(minijinja::Value::from_object(self.root.clone())),
             "parent" => Some(minijinja::Value::from_object(self.parent.clone())),
@@ -313,47 +266,55 @@ impl Object for MetaObject {
 /// paths
 
 impl Dir<DirInfo, PageInfo> {
-    pub fn write_metadata<T: AsRef<Path>>(&self, work_dir: T) -> Dir<DirPath, PagePath> {
+    pub fn write_metadata<T: AsRef<Path>>(&self, work_dir: T) -> Result<Dir<DirPath, PagePath>> {
         let dir_path = work_dir.as_ref().join(&self.data.save);
-        fs::create_dir_all(&dir_path).unwrap();
-        let contents = serde_yml::to_string(&self.data).unwrap();
-        fs::write(dir_path.join(META_FILE), contents).unwrap();
+        fs::create_dir_all(&dir_path)?;
+        let contents = serde_yml::to_string(&self.data)?;
+        fs::write(dir_path.join(META_FILE), contents)?;
         let data = DirPath {
             path: dir_path,
             orig: self.data.save.clone(),
         };
 
-        let dirs = self
+        let dirs: Result<Vec<_>> = self
             .dirs()
             .map(|d| d.write_metadata(work_dir.as_ref()))
             .collect();
-        let pages = self
+        let pages: Result<Vec<_>> = self
             .pages()
             .map(|p| p.write_metadata(work_dir.as_ref()))
             .collect();
 
-        Dir { data, dirs, pages }
+        Ok(Dir {
+            data,
+            dirs: dirs?,
+            pages: pages?,
+        })
     }
 }
 
 impl Page<PageInfo> {
-    fn write_metadata<T: AsRef<Path>>(&self, work_dir: T) -> Page<PagePath> {
+    fn write_metadata<T: AsRef<Path>>(&self, work_dir: T) -> Result<Page<PagePath>> {
         let mut page_path = work_dir.as_ref().join(&self.data.save);
         page_path.set_extension("yaml");
-        let content = serde_yml::to_string(&self.data).unwrap();
-        fs::write(&page_path, content).unwrap();
+        let content = serde_yml::to_string(&self.data)?;
+        fs::write(&page_path, content)?;
         let data = PagePath {
             path: page_path,
             orig: self.data.save.clone(),
             template: self.data.template.clone(),
         };
-        Page { data }
+        Ok(Page { data })
     }
 }
 
 /// with the metadata written out traverse the path tree and pull in metadata as needed
 impl Dir<DirPath, PagePath> {
-    pub fn create<'a, T: AsRef<Path>>(&self, out_dir: T, templates: &Environment<'a>) {
+    pub fn create<'a, T: AsRef<Path>>(
+        &self,
+        out_dir: T,
+        templates: &Environment<'a>,
+    ) -> Result<()> {
         self.create_with(out_dir, templates, self, self)
     }
 
@@ -363,15 +324,15 @@ impl Dir<DirPath, PagePath> {
         templates: &Environment<'a>,
         root: &'a Self,
         parent: &'a Self,
-    ) {
-        println!("Creating for dir `{:?}`", self);
+    ) -> Result<()> {
         for dir in self.dirs() {
-            fs::create_dir_all(out_dir.as_ref().join(&dir.data.orig)).unwrap();
+            fs::create_dir_all(out_dir.as_ref().join(&dir.data.orig))?;
             dir.create_with(out_dir.as_ref(), templates, root, dir);
         }
         for page in self.pages() {
             page.create_with(out_dir.as_ref(), templates, root, parent);
         }
+        Ok(())
     }
 }
 
@@ -382,21 +343,18 @@ impl Page<PagePath> {
         templates: &Environment<'a>,
         root: &'a Dir<DirPath, PagePath>,
         parent: &'a Dir<DirPath, PagePath>,
-    ) {
-        println!("Creating for page `{:?}`", self);
-        let contents = fs::read_to_string(&self.data.path).unwrap();
-        let metadata: Metadata = serde_yml::from_str(&contents).unwrap();
+    ) -> Result<()> {
+        let contents = fs::read_to_string(&self.data.path)?;
+        let metadata: Metadata = serde_yml::from_str(&contents)?;
         let meta = MetaObject {
             root: root.data.clone(),
             parent: parent.data.clone(),
             page: metadata,
         };
-        let template = templates.get_template(&self.data.template).unwrap();
-        println!("using template {}", self.data.template);
-        let content = template
-            .render(minijinja::Value::from_object(meta))
-            .unwrap();
-        fs::write(out_dir.as_ref().join(&self.data.orig), content).unwrap();
+        let template = templates.get_template(&self.data.template)?;
+        let content = template.render(minijinja::Value::from_object(meta))?;
+        fs::write(out_dir.as_ref().join(&self.data.orig), content)?;
+        Ok(())
     }
 }
 
@@ -434,7 +392,7 @@ struct PathInfo {
 /// based on how the path is retrieved this should really be infallible
 impl PathInfo {
     /// the generated page info from it's path
-    fn page<T: AsRef<Path>>(path: T) -> Result<Self, Error> {
+    fn page<T: AsRef<Path>>(path: T) -> Result<Self> {
         let path = path.as_ref();
         let title = path
             .file_stem()
@@ -451,7 +409,7 @@ impl PathInfo {
         Ok(Self { title, save })
     }
     /// the generated dir info from it's path
-    fn dir<T: AsRef<Path>>(path: T) -> Result<Self, Error> {
+    fn dir<T: AsRef<Path>>(path: T) -> Result<Self> {
         let path = path.as_ref();
         let title = path
             .file_name()
@@ -476,7 +434,7 @@ struct Metadata {
 }
 
 impl DirInfo {
-    fn new<T: AsRef<Path>>(path: T) -> Result<Self, Error> {
+    fn new<T: AsRef<Path>>(path: T) -> Result<Self> {
         PathInfo::dir(path).map(|x| DirInfo {
             title: x.title,
             save: x.save,
@@ -484,43 +442,8 @@ impl DirInfo {
     }
 }
 
-#[derive(Debug, Error)]
-pub enum Error {
-    #[error("Encountered io error: `{0}`")]
-    IOError(std::io::Error),
-    #[error("Unexpected path for a page: `{0}`")]
-    PageError(PathBuf),
-    #[error("Unexpected path for a directory: `{0}`")]
-    DirError(PathBuf),
-    #[error("Failed to parse yaml: `{0}`")]
-    SerdeError(serde_yml::Error),
-    #[error("Error with templating: `{0}`")]
-    JinjaError(minijinja::Error),
-}
-
-impl From<std::io::Error> for Error {
-    fn from(value: std::io::Error) -> Self {
-        Self::IOError(value)
-    }
-}
-
-impl From<serde_yml::Error> for Error {
-    fn from(value: serde_yml::Error) -> Self {
-        Self::SerdeError(value)
-    }
-}
-impl From<minijinja::Error> for Error {
-    fn from(value: minijinja::Error) -> Self {
-        Self::JinjaError(value)
-    }
-}
-
 impl PageInfo {
-    fn new<T: AsRef<Path>>(
-        path: T,
-        config: &ConfigDefaults,
-        options: &Options,
-    ) -> Result<Self, Error> {
+    fn new<T: AsRef<Path>>(path: T, config: &ConfigDefaults, options: &Options) -> Result<Self> {
         let path = path.as_ref();
         let info = PathInfo::page(&path)?;
         let mut page_content = PageContent::read(&path, options)?;
@@ -555,7 +478,7 @@ struct PageContent {
 }
 
 impl PageContent {
-    fn read<T: AsRef<Path>>(path: T, options: &Options) -> Result<PageContent, Error> {
+    fn read<T: AsRef<Path>>(path: T, options: &Options) -> Result<PageContent> {
         let text = fs::read_to_string(path)?;
         let parser = Parser::new_ext(&text, *options);
         let mut iterator = TextMergeStream::new(parser).peekable();

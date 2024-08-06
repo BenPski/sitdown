@@ -2,20 +2,19 @@ use std::path::PathBuf;
 
 use figment::providers::{Format, Toml};
 use minijinja::Environment;
-use pulldown_cmark::Options;
 
 use crate::{
-    config::{Config, ConfigDefaults, ConfigStructure},
+    config::{Config, ConfigStructure},
+    error::Result,
     templates,
     tree::{load_contents, Dir, DirInfo, PageInfo},
-    OUT_DIR, WORK_DIR,
 };
 
 /// The app represents the state of the site to generate
 pub struct App<'a> {
     structure: ConfigStructure,
-    options: Options,
-    defaults: ConfigDefaults,
+    // options: Options,
+    // defaults: ConfigDefaults,
     templates: Environment<'a>,
     content: Dir<DirInfo, PageInfo>,
     assets: Dir<PathBuf, PathBuf>,
@@ -40,26 +39,27 @@ impl App<'static> {
 
         App {
             structure,
-            options,
-            defaults,
+            // options,
+            // defaults,
             templates,
             content,
             assets,
         }
     }
 
-    fn copy_assets(&self) -> std::io::Result<()> {
-        self.assets.copy_to(OUT_DIR)
+    fn copy_assets(&self) -> Result<()> {
+        let res = self.assets.copy_to(&self.structure.site)?;
+        Ok(res)
     }
 
-    fn create_pages(&self) -> std::io::Result<()> {
-        let meta_tree = self.content.write_metadata(WORK_DIR);
+    fn create_pages(&self) -> Result<()> {
+        let meta_tree = self.content.write_metadata(&self.structure.work)?;
         println!("tree after writing metadata: {:?}", meta_tree);
-        meta_tree.create(OUT_DIR, &self.templates);
+        meta_tree.create(&self.structure.site, &self.templates);
         Ok(())
     }
 
-    pub fn create(&self) -> std::io::Result<()> {
+    pub fn create(&self) -> Result<()> {
         self.copy_assets().and_then(|_| self.create_pages())
     }
 }
