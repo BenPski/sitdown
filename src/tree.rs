@@ -18,8 +18,11 @@ use serde_yml::Value;
 use crate::error::Result;
 use crate::{config::ConfigDefaults, error::Error, META_FILE};
 
-/// the general file tree that should contain the structure of the site
+// -----
+// The tree datastructure
+// -----
 
+/// the general file tree that should contain the structure of the site
 /// a directory or directory-like thing
 #[derive(Debug)]
 pub struct Dir<DirData, PageData> {
@@ -95,11 +98,16 @@ impl<'a, D, P> Iterator for DirsIter<'a, D, P> {
     }
 }
 
+/// allows for unifying the pages and dirs into a single type if that ends up being useful
 #[derive(Debug)]
 pub enum File<'a, D, P> {
     Page(&'a Page<P>),
     Dir(&'a Dir<D, P>),
 }
+
+// -----
+// The file sytem stored in the tree
+// -----
 
 /// read the contents of a directory
 pub fn load_contents<T: AsRef<Path>>(path: T) -> std::io::Result<Dir<PathBuf, PathBuf>> {
@@ -156,115 +164,13 @@ impl Page<PathBuf> {
     }
 }
 
-#[derive(Debug)]
-struct MetaObject {
-    root: DirPath,
-    parent: DirPath,
-    page: Metadata,
-}
-
-#[derive(Debug, Clone)]
-pub struct DirPath {
-    path: PathBuf,
-    orig: PathBuf,
-}
-
-#[derive(Debug, Clone)]
-pub struct PagePath {
-    path: PathBuf,
-    orig: PathBuf,
-    template: String,
-}
-
-impl Object for Dir<Arc<DirInfo>, Arc<PageInfo>> {
-    fn get_value(self: &std::sync::Arc<Self>, key: &minijinja::Value) -> Option<minijinja::Value> {
-        match key.as_str()? {
-            "pages" => {
-                let pages = self
-                    .pages()
-                    .map(|p| minijinja::Value::from_serialize(&p.data.meta));
-                Some(minijinja::Value::from_iter(pages))
-            }
-            "dirs" => {
-                let dirs = self
-                    .dirs()
-                    .map(|d| minijinja::Value::from_serialize(&d.data.as_ref()));
-                Some(minijinja::Value::from_iter(dirs))
-            }
-
-            "title" => Some(minijinja::Value::from(&self.data.title)),
-            _ => None,
-        }
-    }
-}
-
-impl Object for DirPath {
-    fn get_value(self: &Arc<Self>, key: &minijinja::Value) -> Option<minijinja::Value> {
-        println!("Accessing {key:?} in DirPath");
-        match key.as_str()? {
-            "pages" => {
-                let mut pages: Vec<PageInfo> = Vec::new();
-                for entry in self.path.read_dir().ok()? {
-                    let entry = entry.ok()?;
-                    if entry.path().is_file()
-                        && entry.path().file_name() != Some(OsStr::new(META_FILE))
-                    {
-                        let contents = fs::read_to_string(entry.path())
-                            .inspect_err(|e| {
-                                println!("Failed to read `{:?}` with `{}`", entry.path(), e)
-                            })
-                            .ok()?;
-                        let meta = serde_yml::from_str(&contents)
-                            .inspect_err(|err| {
-                                println!("Failed to parse `{:?}` with `{}`", entry.path(), err)
-                            })
-                            .ok()?;
-                        pages.push(meta);
-                    }
-                }
-                Some(minijinja::Value::from_serialize(pages))
-            }
-            "dirs" => {
-                let mut dirs: Vec<DirInfo> = Vec::new();
-                for entry in self.path.read_dir().ok()? {
-                    let entry = entry.ok()?;
-                    if entry.path().is_dir() {
-                        let meta_path = entry.path().join(META_FILE);
-                        let contents = fs::read_to_string(&meta_path)
-                            .inspect_err(|e| println!("Failed to read {:?} with {}", &meta_path, e))
-                            .ok()?;
-                        let meta = serde_yml::from_str(&contents)
-                            .inspect_err(|e| {
-                                println!("Failed to parse `{:?}` with `{}`", &meta_path, e)
-                            })
-                            .ok()?;
-                        dirs.push(meta);
-                    }
-                }
-                Some(minijinja::Value::from_serialize(dirs))
-            }
-            _ => None,
-        }
-    }
-}
-
-impl Object for MetaObject {
-    fn get_value(self: &Arc<Self>, key: &minijinja::Value) -> Option<minijinja::Value> {
-        match key.as_str()? {
-            "root" => Some(minijinja::Value::from_object(self.root.clone())),
-            "parent" => Some(minijinja::Value::from_object(self.parent.clone())),
-            _ => {
-                let meta = minijinja::Value::from_serialize(self.page.clone());
-                meta.get_item(key).ok()
-            }
-        }
-    }
-}
+// -----
+// The tree after parsing the files in the file system
+// -----
 
 /// write the metadata out to a working directory so that it can be read as needed when
 /// generating the actual pages, then keep track of the paths to the metadata or directory
 /// paths
-
 impl Dir<DirInfo, PageInfo> {
     pub fn write_metadata<T: AsRef<Path>>(&self, work_dir: T) -> Result<Dir<DirPath, PagePath>> {
         let dir_path = work_dir.as_ref().join(&self.data.save);
@@ -308,56 +214,6 @@ impl Page<PageInfo> {
     }
 }
 
-/// with the metadata written out traverse the path tree and pull in metadata as needed
-impl Dir<DirPath, PagePath> {
-    pub fn create<'a, T: AsRef<Path>>(
-        &self,
-        out_dir: T,
-        templates: &Environment<'a>,
-    ) -> Result<()> {
-        self.create_with(out_dir, templates, self, self)
-    }
-
-    fn create_with<'a, T: AsRef<Path>>(
-        &self,
-        out_dir: T,
-        templates: &Environment<'a>,
-        root: &'a Self,
-        parent: &'a Self,
-    ) -> Result<()> {
-        for dir in self.dirs() {
-            fs::create_dir_all(out_dir.as_ref().join(&dir.data.orig))?;
-            dir.create_with(out_dir.as_ref(), templates, root, dir)?;
-        }
-        for page in self.pages() {
-            page.create_with(out_dir.as_ref(), templates, root, parent)?;
-        }
-        Ok(())
-    }
-}
-
-impl Page<PagePath> {
-    fn create_with<'a, T: AsRef<Path>>(
-        &self,
-        out_dir: T,
-        templates: &Environment<'a>,
-        root: &'a Dir<DirPath, PagePath>,
-        parent: &'a Dir<DirPath, PagePath>,
-    ) -> Result<()> {
-        let contents = fs::read_to_string(&self.data.path)?;
-        let metadata: Metadata = serde_yml::from_str(&contents)?;
-        let meta = MetaObject {
-            root: root.data.clone(),
-            parent: parent.data.clone(),
-            page: metadata,
-        };
-        let template = templates.get_template(&self.data.template)?;
-        let content = template.render(minijinja::Value::from_object(meta))?;
-        fs::write(out_dir.as_ref().join(&self.data.orig), content)?;
-        Ok(())
-    }
-}
-
 /// data for creating the output directory
 #[derive(Debug, Serialize, Deserialize)]
 pub struct DirInfo {
@@ -365,6 +221,15 @@ pub struct DirInfo {
     save: PathBuf,
     /// name of the directory
     title: String,
+}
+
+impl DirInfo {
+    fn new<T: AsRef<Path>>(path: T) -> Result<Self> {
+        PathInfo::dir(path).map(|x| DirInfo {
+            title: x.title,
+            save: x.save,
+        })
+    }
 }
 
 /// data for creating the output file
@@ -379,67 +244,6 @@ pub struct PageInfo {
     /// the data to be provided to the template
     #[serde(flatten)]
     meta: Metadata,
-}
-
-/// data that can be extracted from the original path
-struct PathInfo {
-    /// the title of the file
-    title: String,
-    /// save location of the file
-    save: PathBuf,
-}
-
-/// based on how the path is retrieved this should really be infallible
-impl PathInfo {
-    /// the generated page info from it's path
-    fn page<T: AsRef<Path>>(path: T) -> Result<Self> {
-        let path = path.as_ref();
-        let title = path
-            .file_stem()
-            .ok_or_else(|| Error::PageError(path.into()))?
-            .to_str()
-            .ok_or_else(|| Error::PageError(path.into()))?
-            .replace("_", " ")
-            .into();
-        let mut save = PathBuf::new();
-        for component in path.components().skip(1) {
-            save.push(component);
-        }
-        save.set_extension("html");
-        Ok(Self { title, save })
-    }
-    /// the generated dir info from it's path
-    fn dir<T: AsRef<Path>>(path: T) -> Result<Self> {
-        let path = path.as_ref();
-        let title = path
-            .file_name()
-            .ok_or_else(|| Error::DirError(path.into()))?
-            .to_str()
-            .ok_or_else(|| Error::DirError(path.into()))?
-            .replace("_", " ")
-            .into();
-        let mut save = PathBuf::new();
-        for component in path.components().skip(1) {
-            save.push(component);
-        }
-        Ok(Self { title, save })
-    }
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-struct Metadata {
-    contents: String,
-    #[serde(flatten)]
-    meta: HashMap<String, Value>,
-}
-
-impl DirInfo {
-    fn new<T: AsRef<Path>>(path: T) -> Result<Self> {
-        PathInfo::dir(path).map(|x| DirInfo {
-            title: x.title,
-            save: x.save,
-        })
-    }
 }
 
 impl PageInfo {
@@ -501,5 +305,195 @@ impl PageContent {
         pulldown_cmark::html::push_html(&mut contents, iterator);
 
         Ok(Self { contents, meta })
+    }
+}
+
+/// data that can be extracted from the original path
+struct PathInfo {
+    /// the title of the file
+    title: String,
+    /// save location of the file
+    save: PathBuf,
+}
+
+/// based on how the path is retrieved this should really be infallible
+impl PathInfo {
+    /// the generated page info from it's path
+    fn page<T: AsRef<Path>>(path: T) -> Result<Self> {
+        let path = path.as_ref();
+        let title = path
+            .file_stem()
+            .ok_or_else(|| Error::PageError(path.into()))?
+            .to_str()
+            .ok_or_else(|| Error::PageError(path.into()))?
+            .replace("_", " ")
+            .into();
+        let mut save = PathBuf::new();
+        for component in path.components().skip(1) {
+            save.push(component);
+        }
+        save.set_extension("html");
+        Ok(Self { title, save })
+    }
+    /// the generated dir info from it's path
+    fn dir<T: AsRef<Path>>(path: T) -> Result<Self> {
+        let path = path.as_ref();
+        let title = path
+            .file_name()
+            .ok_or_else(|| Error::DirError(path.into()))?
+            .to_str()
+            .ok_or_else(|| Error::DirError(path.into()))?
+            .replace("_", " ")
+            .into();
+        let mut save = PathBuf::new();
+        for component in path.components().skip(1) {
+            save.push(component);
+        }
+        Ok(Self { title, save })
+    }
+}
+
+/// generic metadata for a file that includes the defaults from the config and the defaults from
+/// the file path
+#[derive(Debug, Clone, Serialize, Deserialize)]
+struct Metadata {
+    contents: String,
+    #[serde(flatten)]
+    meta: HashMap<String, Value>,
+}
+
+// -----
+// The tree for handling putting together all the metadata after it has been written out
+// -----
+
+/// with the metadata written out traverse the path tree and pull in metadata as needed
+impl Dir<DirPath, PagePath> {
+    pub fn create<'a, T: AsRef<Path>>(
+        &self,
+        out_dir: T,
+        templates: &Environment<'a>,
+    ) -> Result<()> {
+        self.create_with(out_dir, templates, self, self)
+    }
+
+    fn create_with<'a, T: AsRef<Path>>(
+        &self,
+        out_dir: T,
+        templates: &Environment<'a>,
+        root: &'a Self,
+        parent: &'a Self,
+    ) -> Result<()> {
+        for dir in self.dirs() {
+            fs::create_dir_all(out_dir.as_ref().join(&dir.data.orig))?;
+            dir.create_with(out_dir.as_ref(), templates, root, dir)?;
+        }
+        for page in self.pages() {
+            page.create_with(out_dir.as_ref(), templates, root, parent)?;
+        }
+        Ok(())
+    }
+}
+
+impl Page<PagePath> {
+    fn create_with<'a, T: AsRef<Path>>(
+        &self,
+        out_dir: T,
+        templates: &Environment<'a>,
+        root: &'a Dir<DirPath, PagePath>,
+        parent: &'a Dir<DirPath, PagePath>,
+    ) -> Result<()> {
+        let contents = fs::read_to_string(&self.data.path)?;
+        let metadata: Metadata = serde_yml::from_str(&contents)?;
+        let meta = MetaObject {
+            root: root.data.clone(),
+            parent: parent.data.clone(),
+            page: metadata,
+        };
+        let template = templates.get_template(&self.data.template)?;
+        let content = template.render(minijinja::Value::from_object(meta))?;
+        fs::write(out_dir.as_ref().join(&self.data.orig), content)?;
+        Ok(())
+    }
+}
+
+#[derive(Debug)]
+struct MetaObject {
+    root: DirPath,
+    parent: DirPath,
+    page: Metadata,
+}
+
+#[derive(Debug, Clone)]
+pub struct DirPath {
+    path: PathBuf,
+    orig: PathBuf,
+}
+
+#[derive(Debug, Clone)]
+pub struct PagePath {
+    path: PathBuf,
+    orig: PathBuf,
+    template: String,
+}
+
+impl Object for DirPath {
+    fn get_value(self: &Arc<Self>, key: &minijinja::Value) -> Option<minijinja::Value> {
+        match key.as_str()? {
+            "pages" => {
+                let mut pages: Vec<PageInfo> = Vec::new();
+                for entry in self.path.read_dir().ok()? {
+                    let entry = entry.ok()?;
+                    if entry.path().is_file()
+                        && entry.path().file_name() != Some(OsStr::new(META_FILE))
+                    {
+                        let contents = fs::read_to_string(entry.path())
+                            .inspect_err(|e| {
+                                println!("Failed to read `{:?}` with `{}`", entry.path(), e)
+                            })
+                            .ok()?;
+                        let meta = serde_yml::from_str(&contents)
+                            .inspect_err(|err| {
+                                println!("Failed to parse `{:?}` with `{}`", entry.path(), err)
+                            })
+                            .ok()?;
+                        pages.push(meta);
+                    }
+                }
+                Some(minijinja::Value::from_serialize(pages))
+            }
+            "dirs" => {
+                let mut dirs: Vec<DirInfo> = Vec::new();
+                for entry in self.path.read_dir().ok()? {
+                    let entry = entry.ok()?;
+                    if entry.path().is_dir() {
+                        let meta_path = entry.path().join(META_FILE);
+                        let contents = fs::read_to_string(&meta_path)
+                            .inspect_err(|e| println!("Failed to read {:?} with {}", &meta_path, e))
+                            .ok()?;
+                        let meta = serde_yml::from_str(&contents)
+                            .inspect_err(|e| {
+                                println!("Failed to parse `{:?}` with `{}`", &meta_path, e)
+                            })
+                            .ok()?;
+                        dirs.push(meta);
+                    }
+                }
+                Some(minijinja::Value::from_serialize(dirs))
+            }
+            _ => None,
+        }
+    }
+}
+
+impl Object for MetaObject {
+    fn get_value(self: &Arc<Self>, key: &minijinja::Value) -> Option<minijinja::Value> {
+        match key.as_str()? {
+            "root" => Some(minijinja::Value::from_object(self.root.clone())),
+            "parent" => Some(minijinja::Value::from_object(self.parent.clone())),
+            _ => {
+                let meta = minijinja::Value::from_serialize(self.page.clone());
+                meta.get_item(key).ok()
+            }
+        }
     }
 }
