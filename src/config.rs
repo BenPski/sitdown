@@ -76,7 +76,7 @@ impl Config {
     pub fn figment() -> Figment {
         Figment::from(Self::default())
     }
-    fn from<T: Provider>(provider: T) -> Result<Self, Error> {
+    pub fn from<T: Provider>(provider: T) -> Result<Self, Error> {
         Figment::from(provider).extract()
     }
 }
@@ -90,15 +90,15 @@ impl Provider for Config {
     }
 }
 
-impl ConfigStructure {
-    fn figment() -> Figment {
-        Figment::from(Self::default())
-    }
-
-    fn from<T: Provider>(provider: T) -> Result<Self, Error> {
-        Figment::from(provider).extract()
-    }
-}
+// impl ConfigStructure {
+//     fn figment() -> Figment {
+//         Figment::from(Self::default())
+//     }
+//
+//     fn from<T: Provider>(provider: T) -> Result<Self, Error> {
+//         Figment::from(provider).extract()
+//     }
+// }
 
 impl Provider for ConfigStructure {
     fn metadata(&self) -> figment::Metadata {
@@ -109,15 +109,15 @@ impl Provider for ConfigStructure {
     }
 }
 
-impl ConfigDefaults {
-    fn figment() -> Figment {
-        Figment::from(Self::default())
-    }
-
-    fn from<T: Provider>(provider: T) -> Result<Self, Error> {
-        Figment::from(provider).extract()
-    }
-}
+// impl ConfigDefaults {
+//     fn figment() -> Figment {
+//         Figment::from(Self::default())
+//     }
+//
+//     fn from<T: Provider>(provider: T) -> Result<Self, Error> {
+//         Figment::from(provider).extract()
+//     }
+// }
 
 impl Provider for ConfigDefaults {
     fn metadata(&self) -> figment::Metadata {
@@ -129,12 +129,12 @@ impl Provider for ConfigDefaults {
 }
 
 impl ConfigOptions {
-    fn figment() -> Figment {
-        Figment::from(Self::default())
-    }
-    fn from<T: Provider>(provider: T) -> Result<Self, Error> {
-        Figment::from(provider).extract()
-    }
+    // fn figment() -> Figment {
+    //     Figment::from(Self::default())
+    // }
+    // fn from<T: Provider>(provider: T) -> Result<Self, Error> {
+    //     Figment::from(provider).extract()
+    // }
     pub fn options(&self) -> Options {
         let mut options = Options::empty();
         options.insert(Options::ENABLE_YAML_STYLE_METADATA_BLOCKS);

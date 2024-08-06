@@ -3,7 +3,7 @@ use std::{fs, io, path::Path};
 use minijinja::Environment;
 
 /// the templates associated with the site
-
+// really glad I split this off, would have been to disorganized if I didn't
 pub fn get_env<'a, T: AsRef<Path>>(template_dir: T) -> io::Result<Environment<'a>> {
     let mut env = Environment::new();
     for entry in template_dir.as_ref().read_dir()? {

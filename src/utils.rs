@@ -1,25 +1,8 @@
-use std::{
-    fs, io,
-    path::{Path, PathBuf},
-};
+use std::{fs, io, path::PathBuf};
 
 use figment::providers::{Format, Toml};
 
 use crate::config::{Config, ASSET_DIR, IN_DIR, TEMPLATE_DIR};
-
-pub fn copy_dir(from: impl AsRef<Path>, to: impl AsRef<Path>) -> io::Result<()> {
-    fs::create_dir_all(&to)?;
-    for entry in fs::read_dir(from)? {
-        let entry = entry?;
-        let ty = entry.file_type()?;
-        if ty.is_dir() {
-            copy_dir(entry.path(), to.as_ref().join(entry.file_name()))?;
-        } else {
-            fs::copy(entry.path(), to.as_ref().join(entry.file_name()))?;
-        }
-    }
-    Ok(())
-}
 
 pub fn get_config() -> Config {
     Config::figment()

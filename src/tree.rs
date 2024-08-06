@@ -327,10 +327,10 @@ impl Dir<DirPath, PagePath> {
     ) -> Result<()> {
         for dir in self.dirs() {
             fs::create_dir_all(out_dir.as_ref().join(&dir.data.orig))?;
-            dir.create_with(out_dir.as_ref(), templates, root, dir);
+            dir.create_with(out_dir.as_ref(), templates, root, dir)?;
         }
         for page in self.pages() {
-            page.create_with(out_dir.as_ref(), templates, root, parent);
+            page.create_with(out_dir.as_ref(), templates, root, parent)?;
         }
         Ok(())
     }
