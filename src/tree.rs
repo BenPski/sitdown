@@ -1,3 +1,10 @@
+/// tree datastructure for representing a portion of the file system
+/// tracks the transitions for the different stages of the processing of the user written content
+/// out to the files to be served
+///
+/// transitions are:
+/// file system -> parsed files -> metadata written -> pages generated
+/// Dir<PathBuf, PathBuf> -> Dir<DirInfo, PageInfo> -> Dir<DirPath, PagePath> -> ()
 use minijinja::{value::Object, Environment};
 use pulldown_cmark::{
     CowStr::Borrowed,
