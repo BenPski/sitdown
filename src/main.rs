@@ -77,6 +77,7 @@ async fn main() {
                 log::error!("Encountered error `{err}`");
             }
         }
+        _ => println!("lol"),
     }
 }
 

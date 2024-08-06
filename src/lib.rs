@@ -1,3 +1,5 @@
+pub mod tree;
+
 pub mod app;
 pub mod config;
 pub mod document;
@@ -13,3 +15,5 @@ pub const IN_DIR: &str = "content";
 pub const OUT_DIR: &str = "_site";
 pub const ASSET_DIR: &str = "assets";
 pub const TEMPLATE_DIR: &str = "templates";
+pub const WORK_DIR: &str = "_work";
+pub const META_FILE: &str = "_metadata.yaml";

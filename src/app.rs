@@ -1,12 +1,14 @@
+use std::path::PathBuf;
+
 use figment::providers::{Format, Toml};
 use minijinja::Environment;
 use pulldown_cmark::Options;
 
 use crate::{
-    config::{Config, ConfigDefaults, ConfigOptions, ConfigStructure},
-    files::Dir,
-    meta::FileMeta,
-    templates, OUT_DIR,
+    config::{Config, ConfigDefaults, ConfigStructure},
+    templates,
+    tree::{load_contents, Dir, DirInfo, PageInfo},
+    OUT_DIR, WORK_DIR,
 };
 
 /// The app represents the state of the site to generate
@@ -15,11 +17,11 @@ pub struct App<'a> {
     options: Options,
     defaults: ConfigDefaults,
     templates: Environment<'a>,
-    content: Dir,
-    assets: Dir,
+    content: Dir<DirInfo, PageInfo>,
+    assets: Dir<PathBuf, PathBuf>,
 }
 
-impl<'a> App<'a> {
+impl App<'static> {
     pub fn new() -> Self {
         let config: Config = Config::figment()
             .merge(Toml::file("sitdown.yaml"))
@@ -30,8 +32,11 @@ impl<'a> App<'a> {
         let defaults = config.defaults;
 
         let templates = templates::get_env(&structure.template).unwrap();
-        let content = Dir::new(&structure.content);
-        let assets = Dir::new(&structure.assest);
+        let content = load_contents(&structure.content)
+            .unwrap()
+            .annotate(&defaults, &options)
+            .unwrap();
+        let assets = load_contents(&structure.assets).unwrap();
 
         App {
             structure,
@@ -48,8 +53,9 @@ impl<'a> App<'a> {
     }
 
     fn create_pages(&self) -> std::io::Result<()> {
-        let tree = FileMeta::from_dir(&self.content, &self.options, &self.defaults);
-        tree.traverse(&self.templates);
+        let meta_tree = self.content.write_metadata(WORK_DIR);
+        println!("tree after writing metadata: {:?}", meta_tree);
+        meta_tree.create(OUT_DIR, &self.templates);
         Ok(())
     }
 

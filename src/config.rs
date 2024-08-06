@@ -16,7 +16,7 @@ pub struct ConfigStructure {
     /// the directory that hold all the markdown files
     pub content: String,
     /// static files that don't need processing like css, js, and media
-    pub assest: String,
+    pub assets: String,
     /// the jinja templates
     pub template: String,
 }
@@ -39,7 +39,7 @@ impl Default for ConfigStructure {
     fn default() -> Self {
         Self {
             content: "content".into(),
-            assest: "assets".into(),
+            assets: "assets".into(),
             template: "templates".into(),
         }
     }
