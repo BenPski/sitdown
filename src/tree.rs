@@ -14,7 +14,7 @@ use pulldown_cmark::{
 use std::{
     collections::HashMap,
     ffi::OsStr,
-    fs,
+    fs::{self, DirEntry},
     path::{Path, PathBuf},
     sync::Arc,
 };
@@ -126,7 +126,9 @@ pub fn load_contents<T: AsRef<Path>>(path: T) -> std::io::Result<Dir<PathBuf, Pa
         if entry.path().is_dir() {
             dirs.push(load_contents(entry.path())?);
         } else {
-            pages.push(Page { data: entry.path() })
+            if !hidden(&entry) {
+                pages.push(Page { data: entry.path() })
+            }
         }
     }
     Ok(Dir {
@@ -502,5 +504,23 @@ impl Object for MetaObject {
                 meta.get_item(key).ok()
             }
         }
+    }
+}
+
+// check if a direntry is hidden
+#[cfg(unix)]
+fn hidden(entry: &DirEntry) -> bool {
+    use std::os::unix::ffi::OsStrExt;
+
+    entry.path().file_name().unwrap_or_default().as_bytes()[0] == b'.'
+}
+#[cfg(windows)]
+fn hidden(entry: &DirEntry) -> bool {
+    const FILE_ATTRIBUTE_HIDDEN: u32 = 0x00000002;
+    if let Ok(m) = entry.metadata() {
+        m.file_attributes() & FILE_ATTRIBUTE_HIDDEN != 0
+    } else {
+        // I guess
+        true
     }
 }
