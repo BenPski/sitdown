@@ -41,8 +41,8 @@ impl<'a> App<'a> {
     }
 
     fn clear_dirs(&self) -> Result<()> {
-        fs::remove_dir_all(&self.structure.site)
-            .and_then(|_| fs::remove_dir_all(&self.structure.work))?;
+        let _ = fs::remove_dir_all(&self.structure.site)
+            .and_then(|_| fs::remove_dir_all(&self.structure.work));
         Ok(())
     }
 
@@ -58,8 +58,15 @@ impl<'a> App<'a> {
         Ok(())
     }
 
+    fn create_dirs(&self) -> Result<()> {
+        fs::create_dir_all(&self.structure.work)?;
+        fs::create_dir_all(&self.structure.site)?;
+        Ok(())
+    }
+
     pub fn create(&self) -> Result<()> {
         self.clear_dirs()
+            .and_then(|_| self.create_dirs())
             .and_then(|_| self.copy_assets().and_then(|_| self.create_pages()))
     }
 }
