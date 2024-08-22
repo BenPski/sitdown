@@ -41,8 +41,8 @@ impl<'a> App<'a> {
     }
 
     fn clear_dirs(&self) -> Result<()> {
-        let _ = fs::remove_dir_all(&self.structure.site)
-            .and_then(|_| fs::remove_dir_all(&self.structure.work));
+        let _ = fs::remove_dir_all(&self.structure.site);
+        let _ = fs::remove_dir_all(&self.structure.work);
         Ok(())
     }
 

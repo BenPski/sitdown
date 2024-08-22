@@ -74,12 +74,12 @@ async fn main() {
             let config = get_config();
             env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("info"))
                 .init();
-            if let Err(err) = fs::remove_dir_all(config.structure.site) {
-                log::error!("Encountered error `{err}`");
+            if let Err(err) = fs::remove_dir_all(&config.structure.site) {
+                log::error!("Encountered error for {} `{err}`", config.structure.site);
             }
 
-            if let Err(err) = fs::remove_dir_all(config.structure.work) {
-                log::error!("Encountered error `{err}`");
+            if let Err(err) = fs::remove_dir_all(&config.structure.work) {
+                log::error!("Encountered error for {} `{err}`", config.structure.work);
             }
         } // _ => println!("lol"),
     }
